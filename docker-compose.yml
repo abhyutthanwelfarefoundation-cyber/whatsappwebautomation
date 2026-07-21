@@ -1,0 +1,56 @@
+version: '3.9'
+
+services:
+  backend:
+    build: ./backend
+    container_name: pop-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - '5000:5000'
+    volumes:
+      - ./backend/uploads:/usr/src/app/uploads
+      - ./backend/logs:/usr/src/app/logs
+    depends_on:
+      - redis
+    networks:
+      - pop-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pop-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    networks:
+      - pop-network
+
+  # Optional, dev-only SQL Server for engineers without an existing instance.
+  # In staging/production, point DB_SERVER at your real SQL Server host instead
+  # (the same host as PUB5, or a dedicated one) and remove this service.
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pop-sqlserver-dev
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: '${DEV_SQL_SA_PASSWORD:?set DEV_SQL_SA_PASSWORD in your shell}'
+    ports:
+      - '1433:1433'
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - pop-network
+    profiles:
+      - dev-db
+
+networks:
+  pop-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  sqlserver-data:
