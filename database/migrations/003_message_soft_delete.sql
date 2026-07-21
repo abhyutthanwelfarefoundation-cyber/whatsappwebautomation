@@ -36,4 +36,4 @@ BEGIN
     ALTER TABLE dbo.Messages ADD CONSTRAINT FK_Messages_DeletedByUser
         FOREIGN KEY (DeletedByUserId) REFERENCES dbo.Users(UserId);
 END
-GO
+GO  
