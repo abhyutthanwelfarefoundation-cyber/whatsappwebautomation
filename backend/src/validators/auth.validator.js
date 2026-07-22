@@ -38,7 +38,7 @@ function validate(schemaName) {
         )
       );
     }
-    req.body = value;
+    req.body = value; 
     next();
   };
 }
