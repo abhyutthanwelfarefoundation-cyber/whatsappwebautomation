@@ -11,4 +11,4 @@ RUN mkdir -p logs uploads
 
 EXPOSE 5000
 
-CMD ["node", "src/server.js"]
+CMD ["node", "backend/src/server.js"]
