@@ -7,10 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const REQUIRED_IN_PRODUCTION = [
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
-  'DB_SERVER',
-  'DB_NAME',
-  'DB_USER',
-  'DB_PASSWORD',
+  'DATABASE_URL',
 ];
 
 const env = {
