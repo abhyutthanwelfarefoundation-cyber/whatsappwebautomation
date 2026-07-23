@@ -1,4 +1,4 @@
-const { sql, getPopPool } = require('../config/db');
+const { getPopPool } = require('../config/db');
 const messageRepo = require('../repositories/message.repository');
 const attachmentRepo = require('../repositories/attachment.repository');
 const customerRepo = require('../repositories/customer.repository');
@@ -99,21 +99,11 @@ async function sendAttachment({ customerId, attachmentId, caption, actorUserId }
 
 async function updateSentMessage(messageId, whatsAppMessageId, status, failReason = null) {
   const pool = await getPopPool();
-  const result = await pool
-    .request()
-    .input('MessageId', sql.BigInt, messageId)
-    .input('WhatsAppMessageId', sql.NVarChar(150), whatsAppMessageId)
-    .input('Status', sql.NVarChar(20), status)
-    .input('FailReason', sql.NVarChar(500), failReason).query(`
-      UPDATE dbo.Messages
-      SET WhatsAppMessageId = COALESCE(@WhatsAppMessageId, WhatsAppMessageId),
-          Status = @Status,
-          FailReason = @FailReason,
-          UpdatedAt = SYSUTCDATETIME()
-      OUTPUT INSERTED.*
-      WHERE MessageId = @MessageId
-    `);
-  const updated = result.recordset[0];
+  const { rows } = await pool.query(
+    `UPDATE "Messages" SET "WhatsAppMessageId" = COALESCE($2, "WhatsAppMessageId"), "Status" = $3, "FailReason" = $4, "UpdatedAt" = NOW() WHERE "MessageId" = $1 RETURNING *`,
+    [messageId, whatsAppMessageId, status, failReason]
+  );
+  const updated = rows[0];
   emitToAll('message:status', { messageId: updated.MessageId, status: updated.Status, failReason: updated.FailReason });
   return updated;
 }
@@ -198,17 +188,6 @@ async function retryMessage(messageId, actorUserId) {
   return updated;
 }
 
-/**
- * Sends the approved "invoices" WhatsApp template (Utility category,
- * document header, body: "hi {{2}} this is your bill {{1}}"). This is the
- * ONLY way to message a customer who hasn't messaged us first in the last
- * 24 hours - per WhatsApp's platform rules, free-form text/attachments
- * only work inside that window, but an approved template works anytime.
- *
- * Template placeholder order: parameters are matched positionally as
- * {{1}}, {{2}} regardless of where they appear in the approved body text.
- * For "invoices": {{1}} = bill/invoice reference, {{2}} = customer name.
- */
 async function sendInvoiceTemplate({ customerId, attachmentId, invoiceReference, actorUserId }) {
   const customer = await customerRepo.findById(customerId);
   if (!customer) throw ApiError.notFound('Customer not found');
@@ -233,17 +212,8 @@ async function sendInvoiceTemplate({ customerId, attachmentId, invoiceReference,
   try {
     const mediaId = await provider.uploadMedia(attachment.FilePath, attachment.MimeType);
     const components = [
-      {
-        type: 'header',
-        parameters: [{ type: 'document', document: { id: mediaId, filename: attachment.FileName } }],
-      },
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: invoiceReference },
-          { type: 'text', text: customer.Name },
-        ],
-      },
+      { type: 'header', parameters: [{ type: 'document', document: { id: mediaId, filename: attachment.FileName } }] },
+      { type: 'body', parameters: [{ type: 'text', text: invoiceReference }, { type: 'text', text: customer.Name }] },
     ];
     const { whatsAppMessageId } = await provider.sendTemplate(customer.Mobile, 'invoices', 'en', components);
     message = await updateSentMessage(message.MessageId, whatsAppMessageId, 'Sent');

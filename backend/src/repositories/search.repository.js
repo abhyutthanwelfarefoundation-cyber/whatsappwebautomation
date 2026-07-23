@@ -1,62 +1,13 @@
-const { sql, getPopPool } = require('../config/db');
-
-/**
- * Global search covers: Customer, Invoice, Book, Mobile, Message — per spec.
- * Message search is a text-content search over dbo.Messages, which will
- * start returning real rows once Phase 3 (WhatsApp module) is populating it.
- */
+const { getPopPool } = require('../config/db');
 async function globalSearch(query, limit = 10) {
   const pool = await getPopPool();
-  const request = pool
-    .request()
-    .input('Query', sql.NVarChar(200), `%${query}%`)
-    .input('Limit', sql.Int, limit);
-
+  const q = `%${query}%`;
   const [customers, orders, books, messages] = await Promise.all([
-    request.query(`
-      SELECT TOP (@Limit) CustomerId, Name, Mobile, Email
-      FROM dbo.Customers
-      WHERE Name LIKE @Query OR Mobile LIKE @Query OR Email LIKE @Query
-    `),
-    pool
-      .request()
-      .input('Query', sql.NVarChar(200), `%${query}%`)
-      .input('Limit', sql.Int, limit)
-      .query(`
-        SELECT TOP (@Limit) o.OrderId, o.InvoiceNumber, o.Pub5OrderNumber, o.ChallanNumber,
-               o.Status, c.Name AS CustomerName
-        FROM dbo.Orders o
-        INNER JOIN dbo.Customers c ON c.CustomerId = o.CustomerId
-        WHERE o.InvoiceNumber LIKE @Query OR o.Pub5OrderNumber LIKE @Query OR o.ChallanNumber LIKE @Query
-      `),
-    pool
-      .request()
-      .input('Query', sql.NVarChar(200), `%${query}%`)
-      .input('Limit', sql.Int, limit)
-      .query(`
-        SELECT TOP (@Limit) BookId, Title, Author, Isbn
-        FROM dbo.Books
-        WHERE Title LIKE @Query OR Author LIKE @Query OR Isbn LIKE @Query
-      `),
-    pool
-      .request()
-      .input('Query', sql.NVarChar(200), `%${query}%`)
-      .input('Limit', sql.Int, limit)
-      .query(`
-        SELECT TOP (@Limit) m.MessageId, m.CustomerId, c.Name AS CustomerName, m.Content, m.CreatedAt
-        FROM dbo.Messages m
-        INNER JOIN dbo.Customers c ON c.CustomerId = m.CustomerId
-        WHERE m.Content LIKE @Query
-        ORDER BY m.CreatedAt DESC
-      `),
+    pool.query(`SELECT "CustomerId", "Name", "Mobile", "Email" FROM "Customers" WHERE "Name" ILIKE $1 OR "Mobile" ILIKE $1 OR "Email" ILIKE $1 LIMIT $2`, [q, limit]),
+    pool.query(`SELECT o."OrderId", o."InvoiceNumber", o."Pub5OrderNumber", o."ChallanNumber", o."Status", c."Name" AS "CustomerName" FROM "Orders" o INNER JOIN "Customers" c ON c."CustomerId" = o."CustomerId" WHERE o."InvoiceNumber" ILIKE $1 OR o."Pub5OrderNumber" ILIKE $1 OR o."ChallanNumber" ILIKE $1 LIMIT $2`, [q, limit]),
+    pool.query(`SELECT "BookId", "Title", "Author", "Isbn" FROM "Books" WHERE "Title" ILIKE $1 OR "Author" ILIKE $1 OR "Isbn" ILIKE $1 LIMIT $2`, [q, limit]),
+    pool.query(`SELECT m."MessageId", m."CustomerId", c."Name" AS "CustomerName", m."Content", m."CreatedAt" FROM "Messages" m INNER JOIN "Customers" c ON c."CustomerId" = m."CustomerId" WHERE m."Content" ILIKE $1 ORDER BY m."CreatedAt" DESC LIMIT $2`, [q, limit]),
   ]);
-
-  return {
-    customers: customers.recordset,
-    orders: orders.recordset,
-    books: books.recordset,
-    messages: messages.recordset,
-  };
+  return { customers: customers.rows, orders: orders.rows, books: books.rows, messages: messages.rows };
 }
-
 module.exports = { globalSearch };

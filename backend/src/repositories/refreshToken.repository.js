@@ -1,56 +1,19 @@
-const { sql, getPopPool } = require('../config/db');
-
+const { getPopPool } = require('../config/db');
 async function create({ userId, tokenHash, expiresAt, rememberMe, createdByIp }) {
   const pool = await getPopPool();
-  await pool
-    .request()
-    .input('UserId', sql.Int, userId)
-    .input('TokenHash', sql.NVarChar(255), tokenHash)
-    .input('ExpiresAt', sql.DateTime2, expiresAt)
-    .input('RememberMe', sql.Bit, rememberMe ? 1 : 0)
-    .input('CreatedByIp', sql.NVarChar(64), createdByIp || null)
-    .query(`
-      INSERT INTO dbo.RefreshTokens (UserId, TokenHash, ExpiresAt, RememberMe, CreatedByIp)
-      VALUES (@UserId, @TokenHash, @ExpiresAt, @RememberMe, @CreatedByIp)
-    `);
+  await pool.query(`INSERT INTO "RefreshTokens" ("UserId", "TokenHash", "ExpiresAt", "RememberMe", "CreatedByIp") VALUES ($1, $2, $3, $4, $5)`, [userId, tokenHash, expiresAt, !!rememberMe, createdByIp || null]);
 }
-
 async function findValidByHash(tokenHash) {
   const pool = await getPopPool();
-  const result = await pool
-    .request()
-    .input('TokenHash', sql.NVarChar(255), tokenHash)
-    .query(`
-      SELECT TokenId, UserId, ExpiresAt, RevokedAt, RememberMe
-      FROM dbo.RefreshTokens
-      WHERE TokenHash = @TokenHash
-    `);
-  return result.recordset[0] || null;
+  const { rows } = await pool.query(`SELECT "TokenId", "UserId", "ExpiresAt", "RevokedAt", "RememberMe" FROM "RefreshTokens" WHERE "TokenHash" = $1`, [tokenHash]);
+  return rows[0] || null;
 }
-
 async function revokeByHash(tokenHash, replacedByTokenHash = null) {
   const pool = await getPopPool();
-  await pool
-    .request()
-    .input('TokenHash', sql.NVarChar(255), tokenHash)
-    .input('ReplacedByToken', sql.NVarChar(255), replacedByTokenHash)
-    .query(`
-      UPDATE dbo.RefreshTokens
-      SET RevokedAt = SYSUTCDATETIME(), ReplacedByToken = @ReplacedByToken
-      WHERE TokenHash = @TokenHash
-    `);
+  await pool.query(`UPDATE "RefreshTokens" SET "RevokedAt" = NOW(), "ReplacedByToken" = $2 WHERE "TokenHash" = $1`, [tokenHash, replacedByTokenHash]);
 }
-
 async function revokeAllForUser(userId) {
   const pool = await getPopPool();
-  await pool
-    .request()
-    .input('UserId', sql.Int, userId)
-    .query(`
-      UPDATE dbo.RefreshTokens
-      SET RevokedAt = SYSUTCDATETIME()
-      WHERE UserId = @UserId AND RevokedAt IS NULL
-    `);
+  await pool.query(`UPDATE "RefreshTokens" SET "RevokedAt" = NOW() WHERE "UserId" = $1 AND "RevokedAt" IS NULL`, [userId]);
 }
-
 module.exports = { create, findValidByHash, revokeByHash, revokeAllForUser };

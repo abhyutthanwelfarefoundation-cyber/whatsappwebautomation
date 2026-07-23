@@ -1,114 +1,34 @@
-const { sql, getPopPool } = require('../config/db');
-
+const { getPopPool } = require('../config/db');
 async function findByEmail(email) {
   const pool = await getPopPool();
-  const result = await pool
-    .request()
-    .input('Email', sql.NVarChar(150), email)
-    .query(`
-      SELECT u.UserId, u.FullName, u.Email, u.Mobile, u.PasswordHash, u.RoleId,
-             u.DepartmentId, u.IsActive, u.MustChangePassword, u.FailedLoginAttempts,
-             u.LockedUntil, r.Name AS RoleName
-      FROM dbo.Users u
-      INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
-      WHERE u.Email = @Email
-    `);
-  return result.recordset[0] || null;
+  const { rows } = await pool.query(`SELECT u."UserId", u."FullName", u."Email", u."Mobile", u."PasswordHash", u."RoleId", u."DepartmentId", u."IsActive", u."MustChangePassword", u."FailedLoginAttempts", u."LockedUntil", r."Name" AS "RoleName" FROM "Users" u INNER JOIN "Roles" r ON r."RoleId" = u."RoleId" WHERE u."Email" = $1`, [email]);
+  return rows[0] || null;
 }
-
 async function findById(userId) {
   const pool = await getPopPool();
-  const result = await pool
-    .request()
-    .input('UserId', sql.Int, userId)
-    .query(`
-      SELECT u.UserId, u.FullName, u.Email, u.Mobile, u.RoleId, u.DepartmentId,
-             u.IsActive, u.MustChangePassword, r.Name AS RoleName
-      FROM dbo.Users u
-      INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
-      WHERE u.UserId = @UserId
-    `);
-  return result.recordset[0] || null;
+  const { rows } = await pool.query(`SELECT u."UserId", u."FullName", u."Email", u."Mobile", u."RoleId", u."DepartmentId", u."IsActive", u."MustChangePassword", r."Name" AS "RoleName" FROM "Users" u INNER JOIN "Roles" r ON r."RoleId" = u."RoleId" WHERE u."UserId" = $1`, [userId]);
+  return rows[0] || null;
 }
-
-async function getPermissionsForRole(roleId) {
-  const pool = await getPopPool();
-  const result = await pool
-    .request()
-    .input('RoleId', sql.Int, roleId)
-    .query(`
-      SELECT p.Code
-      FROM dbo.RolePermissions rp
-      INNER JOIN dbo.Permissions p ON p.PermissionId = rp.PermissionId
-      WHERE rp.RoleId = @RoleId
-    `);
-  return result.recordset.map((r) => r.Code);
-}
-
-async function incrementFailedLoginAttempts(userId, lockedUntil) {
-  const pool = await getPopPool();
-  await pool
-    .request()
-    .input('UserId', sql.Int, userId)
-    .input('LockedUntil', sql.DateTime2, lockedUntil || null)
-    .query(`
-      UPDATE dbo.Users
-      SET FailedLoginAttempts = FailedLoginAttempts + 1,
-          LockedUntil = @LockedUntil,
-          UpdatedAt = SYSUTCDATETIME()
-      WHERE UserId = @UserId
-    `);
-}
-
-async function resetFailedLoginAttempts(userId) {
-  const pool = await getPopPool();
-  await pool
-    .request()
-    .input('UserId', sql.Int, userId)
-    .query(`
-      UPDATE dbo.Users
-      SET FailedLoginAttempts = 0,
-          LockedUntil = NULL,
-          LastLoginAt = SYSUTCDATETIME(),
-          UpdatedAt = SYSUTCDATETIME()
-      WHERE UserId = @UserId
-    `);
-}
-
 async function findByIdWithPasswordHash(userId) {
   const pool = await getPopPool();
-  const result = await pool
-    .request()
-    .input('UserId', sql.Int, userId)
-    .query(`
-      SELECT UserId, PasswordHash
-      FROM dbo.Users
-      WHERE UserId = @UserId
-    `);
-  return result.recordset[0] || null;
+  const { rows } = await pool.query(`SELECT "UserId", "PasswordHash" FROM "Users" WHERE "UserId" = $1`, [userId]);
+  return rows[0] || null;
 }
-
+async function getPermissionsForRole(roleId) {
+  const pool = await getPopPool();
+  const { rows } = await pool.query(`SELECT p."Code" FROM "RolePermissions" rp INNER JOIN "Permissions" p ON p."PermissionId" = rp."PermissionId" WHERE rp."RoleId" = $1`, [roleId]);
+  return rows.map((r) => r.Code);
+}
+async function incrementFailedLoginAttempts(userId, lockedUntil) {
+  const pool = await getPopPool();
+  await pool.query(`UPDATE "Users" SET "FailedLoginAttempts" = "FailedLoginAttempts" + 1, "LockedUntil" = $2, "UpdatedAt" = NOW() WHERE "UserId" = $1`, [userId, lockedUntil || null]);
+}
+async function resetFailedLoginAttempts(userId) {
+  const pool = await getPopPool();
+  await pool.query(`UPDATE "Users" SET "FailedLoginAttempts" = 0, "LockedUntil" = NULL, "LastLoginAt" = NOW(), "UpdatedAt" = NOW() WHERE "UserId" = $1`, [userId]);
+}
 async function updatePassword(userId, passwordHash) {
   const pool = await getPopPool();
-  await pool
-    .request()
-    .input('UserId', sql.Int, userId)
-    .input('PasswordHash', sql.NVarChar(255), passwordHash)
-    .query(`
-      UPDATE dbo.Users
-      SET PasswordHash = @PasswordHash,
-          MustChangePassword = 0,
-          UpdatedAt = SYSUTCDATETIME()
-      WHERE UserId = @UserId
-    `);
+  await pool.query(`UPDATE "Users" SET "PasswordHash" = $2, "MustChangePassword" = false, "UpdatedAt" = NOW() WHERE "UserId" = $1`, [userId, passwordHash]);
 }
-
-module.exports = {
-  findByEmail,
-  findById,
-  findByIdWithPasswordHash,
-  getPermissionsForRole,
-  incrementFailedLoginAttempts,
-  resetFailedLoginAttempts,
-  updatePassword,
-};
+module.exports = { findByEmail, findById, findByIdWithPasswordHash, getPermissionsForRole, incrementFailedLoginAttempts, resetFailedLoginAttempts, updatePassword };

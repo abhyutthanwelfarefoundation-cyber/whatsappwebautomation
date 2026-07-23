@@ -1,125 +1,35 @@
-/**
- * PHASE 2 NOTE: same placeholder-now/PUB5-later situation as
- * customer.repository.js. Status/dispatch updates below are the one thing
- * that MUST stay writable in our own DB even after PUB5 read integration -
- * per the project rule "never modify PUB5 tables", dispatch/status changes
- * made from this portal should be tracked in OUR OWN Orders mirror/overlay,
- * not written back into PUB5 directly.
- */
-const { sql, getPopPool } = require('../config/db');
-
+const { getPopPool } = require('../config/db');
 async function list({ status, dispatchStatus, customerId, page = 1, pageSize = 20 }) {
   const pool = await getPopPool();
   const offset = (page - 1) * pageSize;
-
-  const request = pool
-    .request()
-    .input('Status', sql.NVarChar(30), status || null)
-    .input('DispatchStatus', sql.NVarChar(30), dispatchStatus || null)
-    .input('CustomerId', sql.Int, customerId || null)
-    .input('Offset', sql.Int, offset)
-    .input('PageSize', sql.Int, pageSize);
-
-  const result = await request.query(`
-    SELECT o.OrderId, o.Pub5OrderNumber, o.InvoiceNumber, o.ChallanNumber, o.Amount,
-           o.Status, o.DispatchStatus, o.OrderDate, c.CustomerId, c.Name AS CustomerName, c.Mobile,
-           COUNT(*) OVER() AS TotalCount
-    FROM dbo.Orders o
-    INNER JOIN dbo.Customers c ON c.CustomerId = o.CustomerId
-    WHERE (@Status IS NULL OR o.Status = @Status)
-      AND (@DispatchStatus IS NULL OR o.DispatchStatus = @DispatchStatus)
-      AND (@CustomerId IS NULL OR o.CustomerId = @CustomerId)
-    ORDER BY o.OrderDate DESC
-    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
-  `);
-
-  const totalCount = result.recordset[0]?.TotalCount || 0;
-  return { rows: result.recordset, totalCount, page, pageSize };
+  const { rows } = await pool.query(`SELECT o."OrderId", o."Pub5OrderNumber", o."InvoiceNumber", o."ChallanNumber", o."Amount", o."Status", o."DispatchStatus", o."OrderDate", c."CustomerId", c."Name" AS "CustomerName", c."Mobile", COUNT(*) OVER() AS "TotalCount" FROM "Orders" o INNER JOIN "Customers" c ON c."CustomerId" = o."CustomerId" WHERE ($1::text IS NULL OR o."Status" = $1) AND ($2::text IS NULL OR o."DispatchStatus" = $2) AND ($3::int IS NULL OR o."CustomerId" = $3) ORDER BY o."OrderDate" DESC OFFSET $4 LIMIT $5`, [status || null, dispatchStatus || null, customerId || null, offset, pageSize]);
+  const totalCount = rows[0]?.TotalCount || 0;
+  return { rows, totalCount: Number(totalCount), page, pageSize };
 }
-
 async function findById(orderId) {
   const pool = await getPopPool();
-  const orderResult = await pool
-    .request()
-    .input('OrderId', sql.Int, orderId)
-    .query(`
-      SELECT o.OrderId, o.Pub5OrderNumber, o.InvoiceNumber, o.ChallanNumber, o.Amount,
-             o.Status, o.DispatchStatus, o.OrderDate,
-             c.CustomerId, c.Name AS CustomerName, c.Mobile, c.Email
-      FROM dbo.Orders o
-      INNER JOIN dbo.Customers c ON c.CustomerId = o.CustomerId
-      WHERE o.OrderId = @OrderId
-    `);
-
-  const order = orderResult.recordset[0];
+  const { rows } = await pool.query(`SELECT o."OrderId", o."Pub5OrderNumber", o."InvoiceNumber", o."ChallanNumber", o."Amount", o."Status", o."DispatchStatus", o."OrderDate", c."CustomerId", c."Name" AS "CustomerName", c."Mobile", c."Email" FROM "Orders" o INNER JOIN "Customers" c ON c."CustomerId" = o."CustomerId" WHERE o."OrderId" = $1`, [orderId]);
+  const order = rows[0];
   if (!order) return null;
-
-  const itemsResult = await pool
-    .request()
-    .input('OrderId', sql.Int, orderId)
-    .query(`
-      SELECT oi.OrderItemId, b.BookId, b.Title, b.Author, b.Isbn, oi.Quantity, oi.UnitPrice, oi.LineTotal
-      FROM dbo.OrderItems oi
-      INNER JOIN dbo.Books b ON b.BookId = oi.BookId
-      WHERE oi.OrderId = @OrderId
-    `);
-
-  const attachmentsResult = await pool
-    .request()
-    .input('OrderId', sql.Int, orderId)
-    .query(`
-      SELECT AttachmentId, FileType, FileName, MimeType, SizeBytes, CreatedAt
-      FROM dbo.Attachments
-      WHERE OrderId = @OrderId
-    `);
-
-  return { ...order, items: itemsResult.recordset, attachments: attachmentsResult.recordset };
+  const items = await pool.query(`SELECT oi."OrderItemId", b."BookId", b."Title", b."Author", b."Isbn", oi."Quantity", oi."UnitPrice", oi."LineTotal" FROM "OrderItems" oi INNER JOIN "Books" b ON b."BookId" = oi."BookId" WHERE oi."OrderId" = $1`, [orderId]);
+  const attachments = await pool.query(`SELECT "AttachmentId", "FileType", "FileName", "MimeType", "SizeBytes", "CreatedAt" FROM "Attachments" WHERE "OrderId" = $1`, [orderId]);
+  return { ...order, items: items.rows, attachments: attachments.rows };
 }
-
 async function updateStatus(orderId, { status, dispatchStatus }) {
   const pool = await getPopPool();
-  await pool
-    .request()
-    .input('OrderId', sql.Int, orderId)
-    .input('Status', sql.NVarChar(30), status || null)
-    .input('DispatchStatus', sql.NVarChar(30), dispatchStatus || null)
-    .query(`
-      UPDATE dbo.Orders
-      SET Status = COALESCE(@Status, Status),
-          DispatchStatus = COALESCE(@DispatchStatus, DispatchStatus),
-          UpdatedAt = SYSUTCDATETIME()
-      WHERE OrderId = @OrderId
-    `);
+  await pool.query(`UPDATE "Orders" SET "Status" = COALESCE($2, "Status"), "DispatchStatus" = COALESCE($3, "DispatchStatus"), "UpdatedAt" = NOW() WHERE "OrderId" = $1`, [orderId, status || null, dispatchStatus || null]);
 }
-
 async function upsertFromImport({ customerId, invoiceNumber, pub5OrderNumber, challanNumber, amount, status, dispatchStatus, orderDate }) {
   const pool = await getPopPool();
-  const request = pool.request()
-    .input('CustomerId', sql.Int, customerId)
-    .input('InvoiceNumber', sql.NVarChar(50), invoiceNumber || null)
-    .input('Pub5OrderNumber', sql.NVarChar(50), pub5OrderNumber || null)
-    .input('ChallanNumber', sql.NVarChar(50), challanNumber || null)
-    .input('Amount', sql.Decimal(14, 2), amount || 0)
-    .input('Status', sql.NVarChar(30), status || 'Pending')
-    .input('DispatchStatus', sql.NVarChar(30), dispatchStatus || 'Pending')
-    .input('OrderDate', sql.DateTime2, orderDate ? new Date(orderDate) : new Date());
-
+  const date = orderDate ? new Date(orderDate) : new Date();
   if (invoiceNumber) {
-    const existing = await pool.request().input('InvoiceNumber', sql.NVarChar(50), invoiceNumber)
-      .query(`SELECT OrderId FROM dbo.Orders WHERE InvoiceNumber = @InvoiceNumber`);
-    if (existing.recordset[0]) {
-      await request.input('OrderId', sql.Int, existing.recordset[0].OrderId).query(`
-        UPDATE dbo.Orders SET CustomerId = @CustomerId, Pub5OrderNumber = @Pub5OrderNumber,
-          ChallanNumber = @ChallanNumber, Amount = @Amount, Status = @Status,
-          DispatchStatus = @DispatchStatus, OrderDate = @OrderDate, UpdatedAt = SYSUTCDATETIME()
-        WHERE OrderId = @OrderId`);
+    const existing = await pool.query(`SELECT "OrderId" FROM "Orders" WHERE "InvoiceNumber" = $1`, [invoiceNumber]);
+    if (existing.rows[0]) {
+      await pool.query(`UPDATE "Orders" SET "CustomerId" = $2, "Pub5OrderNumber" = $3, "ChallanNumber" = $4, "Amount" = $5, "Status" = $6, "DispatchStatus" = $7, "OrderDate" = $8, "UpdatedAt" = NOW() WHERE "OrderId" = $1`, [existing.rows[0].OrderId, customerId, pub5OrderNumber || null, challanNumber || null, amount || 0, status || 'Pending', dispatchStatus || 'Pending', date]);
       return 'updated';
     }
   }
-  await request.query(`
-    INSERT INTO dbo.Orders (CustomerId, InvoiceNumber, Pub5OrderNumber, ChallanNumber, Amount, Status, DispatchStatus, OrderDate)
-    VALUES (@CustomerId, @InvoiceNumber, @Pub5OrderNumber, @ChallanNumber, @Amount, @Status, @DispatchStatus, @OrderDate)`);
+  await pool.query(`INSERT INTO "Orders" ("CustomerId", "InvoiceNumber", "Pub5OrderNumber", "ChallanNumber", "Amount", "Status", "DispatchStatus", "OrderDate") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [customerId, invoiceNumber || null, pub5OrderNumber || null, challanNumber || null, amount || 0, status || 'Pending', dispatchStatus || 'Pending', date]);
   return 'inserted';
 }
-
 module.exports = { list, findById, updateStatus, upsertFromImport };
