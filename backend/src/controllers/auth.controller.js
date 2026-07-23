@@ -10,8 +10,7 @@ function setRefreshCookie(res, token, expiresAt) {
   res.cookie(REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: env.nodeEnv === 'production',
-    sameSite: 'lax',
-    domain: env.cookieDomain,
+    sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
     expires: expiresAt,
     path: '/api/auth',
   });
