@@ -10,4 +10,9 @@ const getStats = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { stats, recentActivity }).send(res);
 });
 
-module.exports = { getStats };
+const getInvoicesSent = asyncHandler(async (req, res) => {
+  const list = await dashboardRepo.getInvoicesSentList();
+  return new ApiResponse(200, list).send(res);
+});
+
+module.exports = { getStats, getInvoicesSent };

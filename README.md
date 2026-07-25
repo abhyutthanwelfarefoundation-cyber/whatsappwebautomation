@@ -97,7 +97,7 @@ sqlcmd -S <server> -U <user> -P <password> -i database/sample_data.sql
 
 This creates the `PublisherOperations` database and seeds default roles,
 permissions, departments, and one admin user
-(`admin@example.com` / temp password `ChangeMe!123` NavAdmin@2026, forced reset on first login).
+(`admin@example.com` / temp password `ChangeMe!123` NavAdmin@2026, NewAdmin@2026 forced reset on first login).
 
 ### 2. Backend
 

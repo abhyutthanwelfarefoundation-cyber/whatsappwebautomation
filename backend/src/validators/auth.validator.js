@@ -40,7 +40,7 @@ function validate(schemaName) {
     }
     req.body = value; 
     next();
-  };
+  };        
 }
 
-module.exports = { validate };
+module.exports = { validate };  
