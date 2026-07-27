@@ -1,34 +1,49 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import Avatar from '@mui/material/Avatar';
-import Badge from '@mui/material/Badge';
-import IconButton from '@mui/material/IconButton';
-import CircularProgress from '@mui/material/CircularProgress';
-import Chip from '@mui/material/Chip';
-import Alert from '@mui/material/Alert';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import ScheduleSendIcon from '@mui/icons-material/ScheduleSend';
 import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ReplayIcon from '@mui/icons-material/Replay';
+import CancelIcon from '@mui/icons-material/Cancel';
 import AppLayout from '../components/AppLayout';
 import AttachmentPreview from '../components/AttachmentPreview';
 import { listConversations, getThread, markRead, sendMessage, uploadAttachment, deleteMessage, retryMessage } from '../api/whatsapp';
+import { scheduleMessage, listScheduledMessages, cancelScheduledMessage } from '../api/scheduledMessages';
 import { getSocket } from '../api/socket';
 import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  Alert,
+  Avatar,
+  Badge,
+  Box,
+  Chip,
+  CircularProgress,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  TextField,
+  Typography,
+} from '@mui/material';
+
+
+
+
+
 
 function StatusIcon({ status }) {
   if (status === 'Read') return <DoneAllIcon fontSize="inherit" sx={{ color: '#53bdeb' }} />;
@@ -52,6 +67,11 @@ export default function WhatsApp() {
   const [error, setError] = useState('');
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuMessage, setMenuMessage] = useState(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleDateTime, setScheduleDateTime] = useState('');
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduledListOpen, setScheduledListOpen] = useState(false);
+  const [scheduledList, setScheduledList] = useState([]);
   const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
 
@@ -201,6 +221,45 @@ export default function WhatsApp() {
       setError(err.response?.data?.message || 'Failed to resend message');
     }
   };
+  const handleScheduleSubmit = async () => {
+    if (!draft.trim() || !scheduleDateTime || !selectedCustomer) return;
+    setScheduling(true);
+    setError('');
+    try {
+      await scheduleMessage({
+        customerId: selectedCustomer,
+        messageType: 'Text',
+        content: draft.trim(),
+        scheduledFor: new Date(scheduleDateTime).toISOString(),
+      });
+      setDraft('');
+      setScheduleDialogOpen(false);
+      setScheduleDateTime('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to schedule message');
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const openScheduledList = async () => {
+    setScheduledListOpen(true);
+    try {
+      const list = await listScheduledMessages(selectedCustomer);
+      setScheduledList(list);
+    } catch {
+      setScheduledList([]);
+    }
+  };
+
+  const handleCancelScheduled = async (id) => {
+    try {
+      await cancelScheduledMessage(id);
+      setScheduledList((prev) => prev.filter((s) => s.ScheduledMessageId !== id));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel scheduled message');
+    }
+  };
 
   const selectedConvo = conversations.find((c) => c.CustomerId === selectedCustomer);
 
@@ -267,13 +326,20 @@ export default function WhatsApp() {
             </Box>
           ) : (
             <>
-              <Box p={1.5} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  {selectedConvo?.Name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {selectedConvo?.Mobile}
-                </Typography>
+              <Box p={1.5} sx={{ borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    {selectedConvo?.Name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {selectedConvo?.Mobile}
+                  </Typography>
+                </Box>
+                {canSend && (
+                  <Button size="small" startIcon={<ScheduleSendIcon />} onClick={openScheduledList}>
+                    Scheduled
+                  </Button>
+                )}
               </Box>
 
               <Box sx={{ flex: 1, overflowY: 'auto', p: 2, bgcolor: '#efeae2' }}>
@@ -364,6 +430,13 @@ export default function WhatsApp() {
                     }}
                     disabled={sending}
                   />
+                  <IconButton
+                    onClick={() => setScheduleDialogOpen(true)}
+                    disabled={sending || !draft.trim()}
+                    title="Schedule for later"
+                  >
+                    <ScheduleSendIcon />
+                  </IconButton>
                   <IconButton color="primary" onClick={handleSendText} disabled={sending || !draft.trim()}>
                     <SendIcon />
                   </IconButton>
@@ -377,6 +450,55 @@ export default function WhatsApp() {
           )}
         </Box>
       </Paper>
+
+      <Dialog open={scheduleDialogOpen} onClose={() => setScheduleDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Schedule message</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            "{draft}"
+          </Typography>
+          <TextField
+            type="datetime-local"
+            fullWidth
+            size="small"
+            value={scheduleDateTime}
+            onChange={(e) => setScheduleDateTime(e.target.value)}
+            inputProps={{ min: new Date(Date.now() + 60000).toISOString().slice(0, 16) }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setScheduleDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleScheduleSubmit} disabled={!scheduleDateTime || scheduling}>
+            {scheduling ? 'Scheduling…' : 'Schedule'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={scheduledListOpen} onClose={() => setScheduledListOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Scheduled messages</DialogTitle>
+        <DialogContent>
+          {scheduledList.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">Nothing scheduled for this conversation.</Typography>
+          ) : (
+            scheduledList.map((s) => (
+              <Box key={s.ScheduledMessageId} display="flex" justifyContent="space-between" alignItems="center" py={1} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box>
+                  <Typography variant="body2">{s.Content || `[${s.MessageType}]`}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(s.ScheduledFor).toLocaleString()} · by {s.CreatedByName}
+                  </Typography>
+                </Box>
+                <IconButton size="small" onClick={() => handleCancelScheduled(s.ScheduledMessageId)}>
+                  <CancelIcon fontSize="small" color="error" />
+                </IconButton>
+              </Box>
+            ))
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setScheduledListOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMessageMenu}>
         {menuMessage?.Status === 'Failed' && (

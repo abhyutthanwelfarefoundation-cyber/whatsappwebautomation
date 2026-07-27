@@ -5,11 +5,12 @@ const orderRoutes = require('./order.routes');
 const searchRoutes = require('./search.routes');
 const whatsappRoutes = require('./whatsapp.routes');
 const dashboardRoutes = require('./dashboard.routes');
+const scheduledMessageRoutes = require('./scheduledMessage.routes');
 
 const router = express.Router();
 
 router.get('/health', (req, res) => res.json({ success: true, message: 'POP API is running' }));
-
+router.use('/scheduled-messages', scheduledMessageRoutes);
 router.use('/auth', authRoutes);
 router.use('/customers', customerRoutes);
 router.use('/orders', orderRoutes);

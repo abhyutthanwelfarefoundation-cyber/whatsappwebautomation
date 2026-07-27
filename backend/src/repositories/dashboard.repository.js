@@ -8,7 +8,7 @@ async function getRecentActivity(limit = 8) {
   const pool = await getPopPool();
   const { rows } = await pool.query(`SELECT al."EventType", al."CreatedAt", u."FullName" FROM "AuditLogs" al LEFT JOIN "Users" u ON u."UserId" = al."UserId" ORDER BY al."CreatedAt" DESC LIMIT $1`, [limit]);
   return rows;
-}
+} 
 
 
 async function getInvoicesSentList(limit = 100) {

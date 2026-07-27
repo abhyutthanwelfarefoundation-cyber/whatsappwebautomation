@@ -48,6 +48,19 @@ const schemas = {
     before: Joi.date().iso().optional(),
     limit: Joi.number().integer().min(1).max(200).default(50),
   }),
+  scheduleMessage: Joi.object({
+    customerId: Joi.number().integer().required(),
+    messageType: Joi.string().valid('Text', 'Document', 'Image', 'Template').required(),
+    content: Joi.string().allow('').optional(),
+    attachmentId: Joi.number().integer().optional(),
+    invoiceReference: Joi.string().max(100).optional(),
+    scheduledFor: Joi.date().iso().required(),
+  }),
+  scheduledList: Joi.object({
+    customerId: Joi.number().integer().optional(),
+    page: Joi.number().integer().min(1).default(1),
+    pageSize: Joi.number().integer().min(1).max(200).default(50),
+  }),
 };
 
 function validateQuery(schemaName) {
@@ -77,5 +90,7 @@ function validateBody(schemaName) {
     next();
   };
 }
+
+
 
 module.exports = { validateQuery, validateBody };
