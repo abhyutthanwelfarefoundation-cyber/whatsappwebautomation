@@ -23,6 +23,7 @@ import AppLayout from '../components/AppLayout';
 import { getOrderDetail, updateOrderStatus } from '../api/orders';
 import { uploadAttachment, sendInvoiceTemplate } from '../api/whatsapp';
 import { useAuth } from '../context/AuthContext';
+import { scheduleMessage } from '../api/scheduledMessages';
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -36,6 +37,8 @@ export default function OrderDetail() {
   const [dispatchDraft, setDispatchDraft] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
   const [invoiceReference, setInvoiceReference] = useState('');
+  const [scheduleMode, setScheduleMode] = useState(false);
+const [scheduleDateTime, setScheduleDateTime] = useState('');
   const [sendingTemplate, setSendingTemplate] = useState(false);
   const [templateResult, setTemplateResult] = useState('');
 
@@ -90,6 +93,30 @@ export default function OrderDetail() {
       setSendingTemplate(false);
     }
   };
+
+  const handleScheduleInvoiceTemplate = async () => {
+  if (!invoiceFile || !invoiceReference.trim() || !scheduleDateTime) return;
+  setSendingTemplate(true);
+  setTemplateResult('');
+  try {
+    const attachment = await uploadAttachment(invoiceFile, { orderId, fileType: 'Invoice' });
+    await scheduleMessage({
+      customerId: order.CustomerId,
+      messageType: 'Template',
+      attachmentId: attachment.AttachmentId,
+      invoiceReference: invoiceReference.trim(),
+      scheduledFor: new Date(scheduleDateTime).toISOString(),
+    });
+    setTemplateResult('scheduled');
+    setInvoiceFile(null);
+    setScheduleMode(false);
+    setScheduleDateTime('');
+  } catch (err) {
+    setTemplateResult(err.response?.data?.message || 'Failed to schedule invoice');
+  } finally {
+    setSendingTemplate(false);
+  }
+};
 
   if (loading) {
     return (
@@ -246,16 +273,36 @@ export default function OrderDetail() {
                   </Alert>
                 )}
 
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  startIcon={<WhatsAppIcon />}
-                  fullWidth
-                  disabled={!invoiceFile || !invoiceReference.trim() || sendingTemplate}
-                  onClick={handleSendInvoiceTemplate}
-                >
-                  {sendingTemplate ? 'Sending…' : 'Send invoice via WhatsApp'}
-                </Button>
+                <Button size="small" onClick={() => setScheduleMode(!scheduleMode)} sx={{ mb: 1 }}>
+  {scheduleMode ? 'Cancel scheduling' : 'Schedule for later instead'}
+</Button>
+
+{scheduleMode && (
+  <TextField
+    type="datetime-local"
+    fullWidth
+    size="small"
+    value={scheduleDateTime}
+    onChange={(e) => setScheduleDateTime(e.target.value)}
+    inputProps={{ min: new Date(Date.now() + 60000).toISOString().slice(0, 16) }}
+    sx={{ mb: 1.5 }}
+  />
+)}
+
+{templateResult === 'scheduled' && (
+  <Alert severity="success" sx={{ mb: 1.5 }}>Invoice scheduled successfully.</Alert>
+)}
+
+<Button
+  variant="contained"
+  color="secondary"
+  startIcon={<WhatsAppIcon />}
+  fullWidth
+  disabled={!invoiceFile || !invoiceReference.trim() || sendingTemplate || (scheduleMode && !scheduleDateTime)}
+  onClick={scheduleMode ? handleScheduleInvoiceTemplate : handleSendInvoiceTemplate}
+>
+  {sendingTemplate ? (scheduleMode ? 'Scheduling…' : 'Sending…') : (scheduleMode ? 'Schedule invoice' : 'Send invoice via WhatsApp')}
+</Button> 
               </Box>
             )}
           </Paper>
