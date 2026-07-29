@@ -21,3 +21,8 @@ export async function importOrders(file) {
   const { data } = await axiosClient.post('/orders/import', form, { headers: { 'Content-Type': 'multipart/form-data' } });
   return data.data;
 }
+
+export async function createOrder(payload) {
+  const { data } = await axiosClient.post('/orders', payload);
+  return data.data;
+}

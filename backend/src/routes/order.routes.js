@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.use(authenticate);
 router.post('/import', requirePermission('orders.manage'), importUpload.single('file'), controller.importOrders);
-
+router.post('/', requirePermission('orders.manage'), validateBody('orderCreate'), controller.create);
 router.get('/', requirePermission('orders.view'), validateQuery('orderList'), controller.list);
 router.get('/:orderId', requirePermission('orders.view'), controller.getDetail);
 router.patch(

@@ -70,7 +70,7 @@ async function parseCustomerImportFile(buffer, mimeType) {
       pub5CustomerCode: getCell('pub5CustomerCode'),
     });
   });
-  return rows;
+  return rows;  
 }
 
 module.exports = { parseCustomerImportFile };

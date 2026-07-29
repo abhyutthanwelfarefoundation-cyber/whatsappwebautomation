@@ -56,12 +56,24 @@ const schemas = {
     invoiceReference: Joi.string().max(100).optional(),
     scheduledFor: Joi.date().iso().required(),
   }),
+  orderCreate: Joi.object({
+    customerId: Joi.number().integer().required(),
+    invoiceNumber: Joi.string().max(50).allow('').optional(),
+    pub5OrderNumber: Joi.string().max(50).allow('').optional(),
+    challanNumber: Joi.string().max(50).allow('').optional(),
+    amount: Joi.number().min(0).required(),
+    status: Joi.string().valid('Pending','Invoiced','Dispatched','Completed','Cancelled').default('Pending'),
+    dispatchStatus: Joi.string().valid('Pending','Packed','Dispatched','Delivered').default('Pending'),
+    orderDate: Joi.date().iso().optional(),
+  }),
   scheduledList: Joi.object({
     customerId: Joi.number().integer().optional(),
     page: Joi.number().integer().min(1).default(1),
     pageSize: Joi.number().integer().min(1).max(200).default(50),
   }),
 };
+
+
 
 function validateQuery(schemaName) {
   return (req, res, next) => {

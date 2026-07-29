@@ -61,4 +61,11 @@ async function importOrdersFromFile({ buffer, mimeType, actorUserId }) {
   return { totalRows: rows.length, inserted, updated, errors };
 }
 
-module.exports = { listOrders, getOrderDetail, updateOrderStatus, importOrdersFromFile };
+async function createOrder(payload, actorUserId) {
+  const order = await orderRepo.create(payload);
+  await auditLogRepo.record({ userId: actorUserId, eventType: 'ORDER_CREATED', entityType: 'Order', entityId: order.OrderId });
+  return order;
+}
+
+
+module.exports = { listOrders, getOrderDetail, updateOrderStatus, importOrdersFromFile ,createOrder };

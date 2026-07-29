@@ -17,6 +17,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ReplayIcon from '@mui/icons-material/Replay';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AppLayout from '../components/AppLayout';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AttachmentPreview from '../components/AttachmentPreview';
 import { listConversations, getThread, markRead, sendMessage, uploadAttachment, deleteMessage, retryMessage } from '../api/whatsapp';
 import { scheduleMessage, listScheduledMessages, cancelScheduledMessage } from '../api/scheduledMessages';
@@ -319,18 +320,22 @@ export default function WhatsApp() {
         </Box>
 
         {/* Thread */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ flex: 1, display: selectedCustomer ? 'flex' : { xs: 'none', md: 'flex' }, flexDirection: 'column' }}>
           {!selectedCustomer ? (
             <Box flex={1} display="flex" alignItems="center" justifyContent="center">
               <Typography color="text.secondary">Select a conversation to view messages</Typography>
             </Box>
           ) : (
             <>
-              <Box p={1.5} sx={{ borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    {selectedConvo?.Name}
-                  </Typography>
+             <Box p={1.5} sx={{ borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <IconButton size="small" onClick={() => setSelectedCustomer(null)} sx={{ display: { xs: 'inline-flex', md: 'none' } }}>
+      <ArrowBackIcon fontSize="small" />
+    </IconButton>
+          
+      <Typography variant="subtitle1" fontWeight={600}>
+        {selectedConvo?.Name}
+      </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {selectedConvo?.Mobile}
                   </Typography>

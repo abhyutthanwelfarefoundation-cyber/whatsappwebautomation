@@ -27,4 +27,9 @@ const importOrders = asyncHandler(async (req, res) => {
   return new ApiResponse(200, result, 'Import complete').send(res);
 });
 
-module.exports = { list, getDetail, updateStatus , importOrders};
+const create = asyncHandler(async (req, res) => {
+  const order = await orderService.createOrder(req.body, req.user.userId);
+  return new ApiResponse(201, order, 'Order created').send(res);
+});
+
+module.exports = { list, getDetail, updateStatus , importOrders , create};

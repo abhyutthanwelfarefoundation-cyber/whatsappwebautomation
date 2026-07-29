@@ -32,4 +32,14 @@ async function upsertFromImport({ customerId, invoiceNumber, pub5OrderNumber, ch
   await pool.query(`INSERT INTO "Orders" ("CustomerId", "InvoiceNumber", "Pub5OrderNumber", "ChallanNumber", "Amount", "Status", "DispatchStatus", "OrderDate") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [customerId, invoiceNumber || null, pub5OrderNumber || null, challanNumber || null, amount || 0, status || 'Pending', dispatchStatus || 'Pending', date]);
   return 'inserted';
 }
-module.exports = { list, findById, updateStatus, upsertFromImport };
+
+
+async function create({ customerId, invoiceNumber, pub5OrderNumber, challanNumber, amount, status, dispatchStatus, orderDate }) {
+  const pool = await getPopPool();
+  const { rows } = await pool.query(`
+    INSERT INTO "Orders" ("CustomerId","InvoiceNumber","Pub5OrderNumber","ChallanNumber","Amount","Status","DispatchStatus","OrderDate")
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
+  `, [customerId, invoiceNumber || null, pub5OrderNumber || null, challanNumber || null, amount || 0, status || 'Pending', dispatchStatus || 'Pending', orderDate ? new Date(orderDate) : new Date()]);
+  return rows[0];
+}
+module.exports = { list, findById, updateStatus, upsertFromImport ,create };

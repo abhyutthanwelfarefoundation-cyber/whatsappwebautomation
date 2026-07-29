@@ -1,29 +1,29 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
-import Grid from '@mui/material/Grid';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableBody from '@mui/material/TableBody';
-import TableRow from '@mui/material/TableRow';
-import TableCell from '@mui/material/TableCell';
-import CircularProgress from '@mui/material/CircularProgress';
-import Button from '@mui/material/Button';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Alert from '@mui/material/Alert';
-import TextField from '@mui/material/TextField';
-import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AppLayout from '../components/AppLayout';
-import { getOrderDetail, updateOrderStatus } from '../api/orders';
-import { uploadAttachment, sendInvoiceTemplate } from '../api/whatsapp';
-import { useAuth } from '../context/AuthContext';
-import { scheduleMessage } from '../api/scheduledMessages';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Paper from "@mui/material/Paper";
+import Grid from "@mui/material/Grid";
+import Table from "@mui/material/Table";
+import TableHead from "@mui/material/TableHead";
+import TableBody from "@mui/material/TableBody";
+import TableRow from "@mui/material/TableRow";
+import TableCell from "@mui/material/TableCell";
+import CircularProgress from "@mui/material/CircularProgress";
+import Button from "@mui/material/Button";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Alert from "@mui/material/Alert";
+import TextField from "@mui/material/TextField";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import AppLayout from "../components/AppLayout";
+import { getOrderDetail, updateOrderStatus } from "../api/orders";
+import { uploadAttachment, sendInvoiceTemplate } from "../api/whatsapp";
+import { useAuth } from "../context/AuthContext";
+import { scheduleMessage } from "../api/scheduledMessages";
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -31,28 +31,28 @@ export default function OrderDetail() {
   const { hasPermission } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [statusDraft, setStatusDraft] = useState('');
-  const [dispatchDraft, setDispatchDraft] = useState('');
+  const [statusDraft, setStatusDraft] = useState("");
+  const [dispatchDraft, setDispatchDraft] = useState("");
   const [invoiceFile, setInvoiceFile] = useState(null);
-  const [invoiceReference, setInvoiceReference] = useState('');
+  const [invoiceReference, setInvoiceReference] = useState("");
   const [scheduleMode, setScheduleMode] = useState(false);
-const [scheduleDateTime, setScheduleDateTime] = useState('');
+  const [scheduleDateTime, setScheduleDateTime] = useState("");
   const [sendingTemplate, setSendingTemplate] = useState(false);
-  const [templateResult, setTemplateResult] = useState('');
+  const [templateResult, setTemplateResult] = useState("");
 
   const load = async () => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const data = await getOrderDetail(orderId);
       setOrder(data);
       setStatusDraft(data.Status);
       setDispatchDraft(data.DispatchStatus);
-      setInvoiceReference(data.InvoiceNumber || data.Pub5OrderNumber || '');
+      setInvoiceReference(data.InvoiceNumber || data.Pub5OrderNumber || "");
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load order');
+      setError(err.response?.data?.message || "Failed to load order");
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,10 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateOrderStatus(orderId, { status: statusDraft, dispatchStatus: dispatchDraft });
+      await updateOrderStatus(orderId, {
+        status: statusDraft,
+        dispatchStatus: dispatchDraft,
+      });
       await load();
     } finally {
       setSaving(false);
@@ -76,47 +79,57 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
   const handleSendInvoiceTemplate = async () => {
     if (!invoiceFile || !invoiceReference.trim()) return;
     setSendingTemplate(true);
-    setTemplateResult('');
+    setTemplateResult("");
     try {
-      const attachment = await uploadAttachment(invoiceFile, { orderId, fileType: 'Invoice' });
+      const attachment = await uploadAttachment(invoiceFile, {
+        orderId,
+        fileType: "Invoice",
+      });
       await sendInvoiceTemplate({
         customerId: order.CustomerId,
         attachmentId: attachment.AttachmentId,
         invoiceReference: invoiceReference.trim(),
       });
-      setTemplateResult('success');
+      setTemplateResult("success");
       setInvoiceFile(null);
       await load();
     } catch (err) {
-      setTemplateResult(err.response?.data?.message || 'Failed to send invoice');
+      setTemplateResult(
+        err.response?.data?.message || "Failed to send invoice",
+      );
     } finally {
       setSendingTemplate(false);
     }
   };
 
   const handleScheduleInvoiceTemplate = async () => {
-  if (!invoiceFile || !invoiceReference.trim() || !scheduleDateTime) return;
-  setSendingTemplate(true);
-  setTemplateResult('');
-  try {
-    const attachment = await uploadAttachment(invoiceFile, { orderId, fileType: 'Invoice' });
-    await scheduleMessage({
-      customerId: order.CustomerId,
-      messageType: 'Template',
-      attachmentId: attachment.AttachmentId,
-      invoiceReference: invoiceReference.trim(),
-      scheduledFor: new Date(scheduleDateTime).toISOString(),
-    });
-    setTemplateResult('scheduled');
-    setInvoiceFile(null);
-    setScheduleMode(false);
-    setScheduleDateTime('');
-  } catch (err) {
-    setTemplateResult(err.response?.data?.message || 'Failed to schedule invoice');
-  } finally {
-    setSendingTemplate(false);
-  }
-};
+    if (!invoiceFile || !invoiceReference.trim() || !scheduleDateTime) return;
+    setSendingTemplate(true);
+    setTemplateResult("");
+    try {
+      const attachment = await uploadAttachment(invoiceFile, {
+        orderId,
+        fileType: "Invoice",
+      });
+      await scheduleMessage({
+        customerId: order.CustomerId,
+        messageType: "Template",
+        attachmentId: attachment.AttachmentId,
+        invoiceReference: invoiceReference.trim(),
+        scheduledFor: new Date(scheduleDateTime).toISOString(),
+      });
+      setTemplateResult("scheduled");
+      setInvoiceFile(null);
+      setScheduleMode(false);
+      setScheduleDateTime("");
+    } catch (err) {
+      setTemplateResult(
+        err.response?.data?.message || "Failed to schedule invoice",
+      );
+    } finally {
+      setSendingTemplate(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -131,16 +144,20 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
   if (error || !order) {
     return (
       <AppLayout>
-        <Typography color="error">{error || 'Order not found'}</Typography>
+        <Typography color="error">{error || "Order not found"}</Typography>
       </AppLayout>
     );
   }
 
-  const canManage = hasPermission('orders.manage');
+  const canManage = hasPermission("orders.manage");
 
   return (
     <AppLayout>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/orders')} sx={{ mb: 2 }}>
+      <Button
+        startIcon={<ArrowBackIcon />}
+        onClick={() => navigate("/orders")}
+        sx={{ mb: 2 }}
+      >
         Back to Orders
       </Button>
 
@@ -150,36 +167,85 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
             <Typography variant="h6" fontWeight={700} gutterBottom>
               {order.InvoiceNumber || order.Pub5OrderNumber}
             </Typography>
-            <Typography variant="body2"><strong>Customer:</strong> {order.CustomerName}</Typography>
-            <Typography variant="body2"><strong>Mobile:</strong> {order.Mobile}</Typography>
-            <Typography variant="body2"><strong>Challan #:</strong> {order.ChallanNumber || '—'}</Typography>
-            <Typography variant="body2"><strong>Amount:</strong> ₹{Number(order.Amount).toLocaleString('en-IN')}</Typography>
-            <Typography variant="body2"><strong>Order Date:</strong> {new Date(order.OrderDate).toLocaleDateString()}</Typography>
+            <Typography variant="body2">
+              <strong>Customer:</strong> {order.CustomerName}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Mobile:</strong> {order.Mobile}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Challan #:</strong> {order.ChallanNumber || "—"}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Amount:</strong> ₹
+              {Number(order.Amount).toLocaleString("en-IN")}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Order Date:</strong>{" "}
+              {new Date(order.OrderDate).toLocaleDateString()}
+            </Typography>
 
             <Box mt={3}>
-              <Typography variant="subtitle2" gutterBottom>Update status</Typography>
-              <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!canManage}>
+              <Typography variant="subtitle2" gutterBottom>
+                Update status
+              </Typography>
+              <FormControl
+                fullWidth
+                size="small"
+                sx={{ mb: 2 }}
+                disabled={!canManage}
+              >
                 <InputLabel>Order Status</InputLabel>
-                <Select label="Order Status" value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
-                  {['Pending', 'Invoiced', 'Dispatched', 'Completed', 'Cancelled'].map((s) => (
-                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                <Select
+                  label="Order Status"
+                  value={statusDraft}
+                  onChange={(e) => setStatusDraft(e.target.value)}
+                >
+                  {[
+                    "Pending",
+                    "Invoiced",
+                    "Dispatched",
+                    "Completed",
+                    "Cancelled",
+                  ].map((s) => (
+                    <MenuItem key={s} value={s}>
+                      {s}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-              <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!canManage}>
+              <FormControl
+                fullWidth
+                size="small"
+                sx={{ mb: 2 }}
+                disabled={!canManage}
+              >
                 <InputLabel>Dispatch Status</InputLabel>
-                <Select label="Dispatch Status" value={dispatchDraft} onChange={(e) => setDispatchDraft(e.target.value)}>
-                  {['Pending', 'Packed', 'Dispatched', 'Delivered'].map((s) => (
-                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                <Select
+                  label="Dispatch Status"
+                  value={dispatchDraft}
+                  onChange={(e) => setDispatchDraft(e.target.value)}
+                >
+                  {["Pending", "Packed", "Dispatched", "Delivered"].map((s) => (
+                    <MenuItem key={s} value={s}>
+                      {s}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
               {canManage ? (
-                <Button variant="contained" onClick={handleSave} disabled={saving} fullWidth>
-                  {saving ? 'Saving…' : 'Save changes'}
+                <Button
+                  variant="contained"
+                  onClick={handleSave}
+                  disabled={saving}
+                  fullWidth
+                >
+                  {saving ? "Saving…" : "Save changes"}
                 </Button>
               ) : (
-                <Alert severity="info">You don't have permission to update orders.</Alert>
+                <Alert severity="info">
+                  You don't have permission to update orders.
+                </Alert>
               )}
             </Box>
           </Paper>
@@ -191,7 +257,9 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
               Books in this order
             </Typography>
             {order.items.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">No line items recorded.</Typography>
+              <Typography variant="body2" color="text.secondary">
+                No line items recorded.
+              </Typography>
             ) : (
               <Table size="small">
                 <TableHead>
@@ -207,8 +275,12 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
                     <TableRow key={item.OrderItemId}>
                       <TableCell>{item.Title}</TableCell>
                       <TableCell align="right">{item.Quantity}</TableCell>
-                      <TableCell align="right">₹{Number(item.UnitPrice).toLocaleString('en-IN')}</TableCell>
-                      <TableCell align="right">₹{Number(item.LineTotal).toLocaleString('en-IN')}</TableCell>
+                      <TableCell align="right">
+                        ₹{Number(item.UnitPrice).toLocaleString("en-IN")}
+                      </TableCell>
+                      <TableCell align="right">
+                        ₹{Number(item.LineTotal).toLocaleString("en-IN")}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -232,12 +304,21 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
               ))
             )}
 
-            {hasPermission('whatsapp.send') && (
-              <Box mt={2} pt={2} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+            {hasPermission("whatsapp.send") && (
+              <Box
+                mt={2}
+                pt={2}
+                sx={{ borderTop: "1px solid", borderColor: "divider" }}
+              >
                 <Typography variant="subtitle2" gutterBottom>
                   Send invoice via WhatsApp
                 </Typography>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                  sx={{ mb: 1.5 }}
+                >
                   Uses the approved "invoices" template, so it reaches the
                   customer even if they haven't messaged us in the last 24
                   hours.
@@ -252,57 +333,91 @@ const [scheduleDateTime, setScheduleDateTime] = useState('');
                   sx={{ mb: 1.5 }}
                 />
 
-                <Button component="label" variant="outlined" size="small" sx={{ mb: 1.5 }}>
-                  {invoiceFile ? invoiceFile.name : 'Choose PDF file'}
+                <Button
+                  component="label"
+                  variant="outlined"
+                  size="small"
+                  sx={{ mb: 1.5 }}
+                >
+                  {invoiceFile ? invoiceFile.name : "Choose PDF file"}
                   <input
                     type="file"
                     hidden
                     accept="application/pdf"
-                    onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                    onChange={(e) =>
+                      setInvoiceFile(e.target.files?.[0] || null)
+                    }
                   />
                 </Button>
 
-                {templateResult === 'success' && (
+                {templateResult === "success" && (
                   <Alert severity="success" sx={{ mb: 1.5 }}>
                     Invoice sent via WhatsApp template.
                   </Alert>
                 )}
-                {templateResult && templateResult !== 'success' && (
+                {templateResult && templateResult !== "success" && (
                   <Alert severity="error" sx={{ mb: 1.5 }}>
                     {templateResult}
                   </Alert>
                 )}
 
-                <Button size="small" onClick={() => setScheduleMode(!scheduleMode)} sx={{ mb: 1 }}>
-  {scheduleMode ? 'Cancel scheduling' : 'Schedule for later instead'}
-</Button>
+                <Button
+                  size="small"
+                  onClick={() => setScheduleMode(!scheduleMode)}
+                  sx={{ mb: 1 }}
+                >
+                  {scheduleMode
+                    ? "Cancel scheduling"
+                    : "Schedule for later instead"}
+                </Button>
 
-{scheduleMode && (
-  <TextField
-    type="datetime-local"
-    fullWidth
-    size="small"
-    value={scheduleDateTime}
-    onChange={(e) => setScheduleDateTime(e.target.value)}
-    inputProps={{ min: new Date(Date.now() + 60000).toISOString().slice(0, 16) }}
-    sx={{ mb: 1.5 }}
-  />
-)}
+                {scheduleMode && (
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    value={scheduleDateTime}
+                    onChange={(e) => setScheduleDateTime(e.target.value)}
+                    inputProps={{
+                      min: new Date(Date.now() + 60000)
+                        .toISOString()
+                        .slice(0, 16),
+                    }}
+                    sx={{ mb: 1.5 }}
+                  />
+                )}
 
-{templateResult === 'scheduled' && (
-  <Alert severity="success" sx={{ mb: 1.5 }}>Invoice scheduled successfully.</Alert>
-)}
+                {templateResult === "scheduled" && (
+                  <Alert severity="success" sx={{ mb: 1.5 }}>
+                    Invoice scheduled successfully.
+                  </Alert>
+                )}
 
-<Button
-  variant="contained"
-  color="secondary"
-  startIcon={<WhatsAppIcon />}
-  fullWidth
-  disabled={!invoiceFile || !invoiceReference.trim() || sendingTemplate || (scheduleMode && !scheduleDateTime)}
-  onClick={scheduleMode ? handleScheduleInvoiceTemplate : handleSendInvoiceTemplate}
->
-  {sendingTemplate ? (scheduleMode ? 'Scheduling…' : 'Sending…') : (scheduleMode ? 'Schedule invoice' : 'Send invoice via WhatsApp')}
-</Button> 
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<WhatsAppIcon />}
+                  fullWidth
+                  disabled={
+                    !invoiceFile ||
+                    !invoiceReference.trim() ||
+                    sendingTemplate ||
+                    (scheduleMode && !scheduleDateTime)
+                  }
+                  onClick={
+                    scheduleMode
+                      ? handleScheduleInvoiceTemplate
+                      : handleSendInvoiceTemplate
+                  }
+                >
+                  {sendingTemplate
+                    ? scheduleMode
+                      ? "Scheduling…"
+                      : "Sending…"
+                    : scheduleMode
+                      ? "Schedule invoice"
+                      : "Send invoice via WhatsApp"}
+                </Button>
               </Box>
             )}
           </Paper>

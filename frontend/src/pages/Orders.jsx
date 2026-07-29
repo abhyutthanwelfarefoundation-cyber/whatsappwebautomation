@@ -104,8 +104,8 @@ export default function Orders() {
         </FormControl>
       </Box>
 
-      <Paper>
-        <Table>
+      <Paper sx={{ overflowX: 'auto' }}>
+        <Table sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow>
               <TableCell>Invoice / Order #</TableCell>

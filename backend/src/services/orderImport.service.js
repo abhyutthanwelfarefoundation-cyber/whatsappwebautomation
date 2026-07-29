@@ -67,7 +67,7 @@ async function parseOrderImportFile(buffer, mimeType) {
       amount: parseFloat(amount) || 0,
       status: getCell('status') || 'Pending',
       dispatchStatus: getCell('dispatchStatus') || 'Pending',
-      orderDate: getCell('orderDate'),
+      orderDate: getCell('orderDate'),  
     });
   });
   return rows;
