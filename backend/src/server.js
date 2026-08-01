@@ -6,6 +6,7 @@ const { getPopPool, closeAllPools } = require('./config/db');
 const app = require('./app');
 const { initSockets } = require('./sockets');
 const whatsappService = require('./services/whatsapp.service');
+const whatsappMetaService = require('./services/whatsappMeta.service'); // ADDED
 const { startScheduler } = require('./services/scheduledMessage.service');
 
 async function start() {
@@ -20,6 +21,7 @@ async function start() {
     });
     initSockets(io);
     whatsappService.attachSocketServer(io);
+    whatsappMetaService.attachSocketServer(io); // ADDED
 
     server.listen(env.port, () => {
       logger.info(`POP backend listening on port ${env.port} [${env.nodeEnv}]`);

@@ -3,6 +3,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const routes = require('./routes');
+const whatsappMetaRoutes = require('./routes/whatsappMeta.routes'); // ADDED
 const { generalLimiter } = require('./middleware/rateLimiter.middleware');
 const { errorMiddleware, notFoundMiddleware } = require('./middleware/error.middleware');
 const { env } = require('./config/env');
@@ -19,6 +20,19 @@ app.use(
     credentials: true,
   })
 );
+
+// ADDED — must come BEFORE the general express.json() below.
+// Captures the raw body for Meta's signature verification. Scoped only
+// to this one path so nothing else is affected.
+app.use(
+  '/api/whatsapp/meta-webhook',
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -28,6 +42,7 @@ app.use((req, res, next) => {
   // traffic - throttling them could cause Meta to silently give up
   // retrying a delivery/read status update.
   if (req.path === '/api/whatsapp/webhook') return next();
+  if (req.path === '/api/whatsapp/meta-webhook') return next(); // ADDED
   return generalLimiter(req, res, next);
 });
 
@@ -36,6 +51,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api/whatsapp', whatsappMetaRoutes); // ADDED — handles /api/whatsapp/meta-webhook
 app.use('/api', routes);
 
 app.use(notFoundMiddleware);
