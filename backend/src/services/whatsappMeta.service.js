@@ -5,7 +5,7 @@
  * I don't have its filename, only its contents — likely something like
  * repositories/whatsapp.repository.js or repositories/message.repository.js.
  */
-const messageRepository = require('../repositories/whatsapp.repository');
+const messageRepository = require('../repositories/message.repository');
 
 let ioInstance = null;
 
