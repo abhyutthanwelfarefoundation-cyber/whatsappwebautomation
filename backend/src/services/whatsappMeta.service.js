@@ -5,7 +5,7 @@
  * I don't have its filename, only its contents — likely something like
  * repositories/whatsapp.repository.js or repositories/message.repository.js.
  */
-const messageRepository = require('../repositories/message.repository');
+const messageRepository = require('../repositories/whatsapp.repository');
 
 let ioInstance = null;
 
@@ -43,10 +43,10 @@ const TYPE_MAP = {
 };
 
 async function processIncomingMessage(message, contacts) {
-  const fromMobile = message.from; // format must match however Customers.Mobile is stored —
-                                    // your existing findCustomerByMobile does an exact match,
-                                    // no normalization, so double check this lines up
-                                    // (e.g. with/without country code, leading zeros, etc.)
+  const rawFromMobile = message.from; // Meta sends this as country code + number, e.g. "919201958456"
+  // Your Customers.Mobile is stored as the last 10 digits, no country code (e.g. "9201958456").
+  // Take the last 10 digits regardless of which country code Meta prefixed.
+  const fromMobile = rawFromMobile.slice(-10);
   const waMessageId = message.id;
   const type = message.type;
   const messageType = TYPE_MAP[type] || 'Text';
@@ -72,7 +72,7 @@ async function processIncomingMessage(message, contacts) {
   let customer = await messageRepository.findCustomerByMobile(fromMobile);
 
   if (!customer) {
-    const profileName = contacts?.find((c) => c.wa_id === fromMobile)?.profile?.name;
+    const profileName = contacts?.find((c) => c.wa_id === rawFromMobile)?.profile?.name;
     customer = await messageRepository.createCustomerFromWhatsApp(fromMobile, profileName);
     console.log(`[meta-webhook] Auto-created customer for unknown mobile ${fromMobile}`);
   }
